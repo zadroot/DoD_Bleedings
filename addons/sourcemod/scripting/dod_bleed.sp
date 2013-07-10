@@ -12,7 +12,7 @@
 
 #include <sdkhooks>
 
-#define PLUGIN_NAME    "DoD:S Bleedings"
+#define PLUGIN_NAME    "DoD:S Bleed"
 #define PLUGIN_VERSION "1.0"
 
 // Maximum players that DoD:S support
@@ -62,7 +62,7 @@ public Plugin:myinfo =
 {
 	name        = PLUGIN_NAME,
 	author      = "Root",
-	description = "Makes player bleeding after taking X damage for Y health every Z seconds",
+	description = "Forces player to bleeding after taking X damage for Y health every Z seconds",
 	version     = PLUGIN_VERSION,
 	url         = "http://dodsplugins.com/"
 };
@@ -209,10 +209,10 @@ public Action:Timer_Bleeding(Handle:timer)
 		// Ignore not yet connected and dead players
 		if (IsClientInGame(i) && IsPlayerAlive(i))
 		{
-			// There are any bleeding player?
-			if (bool:BleedInfo[i][enabled] == true)
+			// There are any bleeding player? Also make sure that attacker is in game
+			if (bool:BleedInfo[i][enabled] == true && IsClientInGame(BleedInfo[i][attacker]))
 			{
-				// Retrieve bleeding mode
+				// Retrieve the mode for bleeding
 				switch (GetConVarBool(Bleed_Mode))
 				{
 					case false:
@@ -222,7 +222,7 @@ public Action:Timer_Bleeding(Handle:timer)
 						// If player is having less health than initalized in appropriate cvar...
 						if (BleedInfo[i][health] <= bleedinghealth)
 						{
-							// ...take X damage, depends on unique hitgroup and value
+							// ...take X damage every time depends on unique hitgroup and value
 							SDKHooks_TakeDamage(i, 0, BleedInfo[i][attacker], float(BleedInfo[i][damage]));
 						}
 
