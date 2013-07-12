@@ -140,7 +140,7 @@ public Event_Player_Spawn(Handle:event, const String:name[], bool:dontBroadcast)
  * -------------------------------------------------------------------------- */
 public Event_Player_Damaged(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	new attackerid = GetEventInt(event, "attacker");
+	new attackerid = GetClientOfUserId(GetEventInt(event, "attacker"));
 	new victimid   = GetClientOfUserId(GetEventInt(event, "victim"));
 	new hitgroupid = GetEventInt(event, "hitgroup");
 
@@ -164,7 +164,7 @@ public Event_Player_Damaged(Handle:event, const String:name[], bool:dontBroadcas
 			}
 			case true:
 			{
-				// Start bleeding if player taken X damage (doesn't matter how health had/having now)
+				// Start bleeding if player taken X damage (doesn't matter how many health had or having right now)
 				if (GetEventInt(event, "damage") >= bleedinghealth)
 				{
 					StartBleed(victimid, attackerid, hitgroupid, victimhealth);
@@ -180,16 +180,16 @@ public Event_Player_Damaged(Handle:event, const String:name[], bool:dontBroadcas
  * -------------------------------------------------------------------------- */
 StartBleed(client, attackerid, hitgroupid, clienthp)
 {
-	// Set bleeding to true
+	// Set bleed to true
 	BleedInfo[client][enabled]  = true;
 
 	// Add attacker index
 	BleedInfo[client][attacker] = attackerid;
 
-	// Set previous health and real health values from enum to 'true client health'
+	// Set health infos equal to real current player's health value
 	BleedInfo[client][health]   = BleedInfo[client][curhealth] = clienthp;
 
-	// Get a hitgroup
+	// Retrieve a hitgroup
 	switch (hitgroupid)
 	{
 		// Take appropriate damage per Y seconds depends on ConVar values
@@ -215,7 +215,7 @@ public Action:Timer_Bleeding(Handle:timer)
 			if (bool:BleedInfo[i][enabled] == true)
 			{
 				// Also make sure that attacker is in game, otherwise set attacker as a 'world'
-				new attackerID = IsClientInGame(BleedInfo[i][attacker]) ? GetClientOfUserId(BleedInfo[i][attacker]) : 0;
+				new attackerID = IsClientInGame(BleedInfo[i][attacker]) ? BleedInfo[i][attacker] : 0;
 
 				switch (GetConVarBool(Bleed_Mode))
 				{
