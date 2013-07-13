@@ -4,7 +4,7 @@
 * Description:
 *   Makes player bleeding after taking X damage for Y health every Z seconds.
 *
-* Version 1.1
+* Version 1.2
 * Changelog & more info at http://goo.gl/4nKhJ
 */
 
@@ -13,7 +13,7 @@
 #include <sdkhooks>
 
 #define PLUGIN_NAME    "DoD:S Bleed"
-#define PLUGIN_VERSION "1.1"
+#define PLUGIN_VERSION "1.2"
 
 // Maximum players that DoD:S support
 #define DOD_MAXPLAYERS 33
@@ -62,7 +62,7 @@ public Plugin:myinfo =
 {
 	name        = PLUGIN_NAME,
 	author      = "Root",
-	description = "Forces player to bleeding after taking X damage for Y health every Z seconds",
+	description = "Enables player bleeding after taking X damage for Y health every Z seconds",
 	version     = PLUGIN_VERSION,
 	url         = "http://dodsplugins.com/"
 };
@@ -77,13 +77,13 @@ public OnPluginStart()
 	// FCVAR_DONTRECORD dont saves version convar in plugin's config
 	CreateConVar("dod_bleeding_version", PLUGIN_VERSION, PLUGIN_NAME, FCVAR_NOTIFY|FCVAR_DONTRECORD);
 
-	// Create other console variables
-	Bleed_Damage[HEAD]  = CreateConVar("dod_bleed_damage_head",  "4", "Damage to take to a player which got hit in the head", FCVAR_PLUGIN, true, 1.0, true, 100.0);
-	Bleed_Damage[BODY]  = CreateConVar("dod_bleed_damage_chest", "3", "Damage to take to a player which got hit in a body",   FCVAR_PLUGIN, true, 1.0, true, 100.0);
-	Bleed_Damage[OTHER] = CreateConVar("dod_bleed_damage_other", "2", "Default damage to take to a player while bleeding",    FCVAR_PLUGIN, true, 1.0, true, 100.0);
+	// Create plugin's console variables
+	Bleed_Damage[HEAD]  = CreateConVar("dod_bleed_damage_head",  "4", "Determines damage to take to a player which got hit in the head", FCVAR_PLUGIN, true, 1.0, true, 100.0);
+	Bleed_Damage[BODY]  = CreateConVar("dod_bleed_damage_chest", "3", "Determines damage to take to a player which got hit in a body",   FCVAR_PLUGIN, true, 1.0, true, 100.0);
+	Bleed_Damage[OTHER] = CreateConVar("dod_bleed_damage_other", "2", "Determines default damage to take to a player while bleeding",    FCVAR_PLUGIN, true, 1.0, true, 100.0);
 
 	Bleed_Mode   = CreateConVar("dod_bleed_mode",   "0",   "Determines a mode to start bleeding\n0 = If player is having less than X health\n1 = If player got damaged for more than X health", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	Bleed_Health = CreateConVar("dod_bleed_health", "30",  "If mode is set to 0, start bleeding if player got less health, otherwise when player got damaged for more than this value",         FCVAR_PLUGIN, true, 0.0, true, 100.0);
+	Bleed_Health = CreateConVar("dod_bleed_health", "30",  "If mode is set to 0, start bleeding if player got less health that this value, otherwise start bleeding when player got damaged for more than this value", FCVAR_PLUGIN, true, 0.0, true, 100.0);
 	Bleed_Delay  = CreateConVar("dod_bleed_delay",  "1.5", "Delay between taking damage while bleeding (in seconds)", FCVAR_PLUGIN, true, 0.1);
 
 	// Hook changes only for delay convar to properly set timer
@@ -130,8 +130,8 @@ public OnMapStart()
  * -------------------------------------------------------------------------- */
 public Event_Player_Spawn(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	// At every respawn make sure player is not bleeding anymore
-	BleedInfo[GetClientOfUserId(GetEventInt(event, "userid"))][enabled] = false;
+	// At every respawn reset damage and make sure player is not bleeding anymore
+	StopBleed(GetClientOfUserId(GetEventInt(event, "userid")));
 }
 
 /* Event_Player_Damage()
@@ -148,54 +148,25 @@ public Event_Player_Damaged(Handle:event, const String:name[], bool:dontBroadcas
 	new victimhealth   = GetClientHealth(victimid);
 	new bleedinghealth = GetConVarInt(Bleed_Health);
 
-	// Make sure victim wasnt bleed before
-	if (bool:BleedInfo[victimid][enabled] == false)
+	// Retrieve mode
+	switch (GetConVarBool(Bleed_Mode))
 	{
-		// Retrieve mode
-		switch (GetConVarBool(Bleed_Mode))
+		// Bleed if player got less health than value of ConVar
+		case false:
 		{
-			// Bleed if player got less health than value of ConVar
-			case false:
+			if (victimhealth <= bleedinghealth)
 			{
-				if (victimhealth <= bleedinghealth)
-				{
-					StartBleed(victimid, attackerid, hitgroupid, victimhealth);
-				}
-			}
-			case true:
-			{
-				// Start bleeding if player taken X damage (doesn't matter how many health had or having right now)
-				if (GetEventInt(event, "damage") >= bleedinghealth)
-				{
-					StartBleed(victimid, attackerid, hitgroupid, victimhealth);
-				}
+				StartBleed(victimid, attackerid, hitgroupid, victimhealth);
 			}
 		}
-	}
-}
-
-/* StartBleed()
- *
- * Adds client into timer queue.
- * -------------------------------------------------------------------------- */
-StartBleed(client, attackerid, hitgroupid, clienthp)
-{
-	// Set bleed to true
-	BleedInfo[client][enabled]  = true;
-
-	// Add attacker index
-	BleedInfo[client][attacker] = attackerid;
-
-	// Set health infos equal to real current player's health value
-	BleedInfo[client][health]   = BleedInfo[client][curhealth] = clienthp;
-
-	// Retrieve a hitgroup
-	switch (hitgroupid)
-	{
-		// Take appropriate damage per Y seconds depends on ConVar values
-		case head: BleedInfo[client][damage] = GetConVarInt(Bleed_Damage[HEAD]);
-		case body: BleedInfo[client][damage] = GetConVarInt(Bleed_Damage[BODY]);
-		default:   BleedInfo[client][damage] = GetConVarInt(Bleed_Damage[OTHER]);
+		case true:
+		{
+			// Start bleeding if player taken X damage (doesn't matter how many health had and having right now)
+			if (GetEventInt(event, "damage") >= bleedinghealth)
+			{
+				StartBleed(victimid, attackerid, hitgroupid, victimhealth);
+			}
+		}
 	}
 }
 
@@ -211,12 +182,11 @@ public Action:Timer_Bleeding(Handle:timer)
 		// Ignore not yet connected and dead players
 		if (IsClientInGame(i) && IsPlayerAlive(i))
 		{
-			// There are any bleeding players ?
+			// There are any bleeding players?
 			if (bool:BleedInfo[i][enabled] == true)
 			{
-				// Make sure attacker is valid, otherwise set attacker as a 'world'
-				new attackerID = (GetClientOfUserId(BleedInfo[i][attacker]) != 0) ? GetClientOfUserId(BleedInfo[i][attacker]) : 0;
-
+				// Retrieve the damage from every hitgroup
+				new dmg = BleedInfo[i][damage];
 				switch (GetConVarBool(Bleed_Mode))
 				{
 					case false:
@@ -227,22 +197,21 @@ public Action:Timer_Bleeding(Handle:timer)
 						if (BleedInfo[i][health] <= bleedinghealth)
 						{
 							// ...take X damage (depends on unique value) every Y seconds
-							SDKHooks_TakeDamage(i, 0, attackerID, float(BleedInfo[i][damage]));
+							SDKHooks_TakeDamage(i, 0, GetClientOfUserId(BleedInfo[i][attacker]), float(dmg));
 						}
 						if (GetClientHealth(i) > bleedinghealth)
 						{
-							// However if player is having more health, disable bleeding
-							BleedInfo[i][enabled] = false;
+							// However if player is having more health - disable bleeding
+							StopBleed(i);
 						}
 					}
 					case true:
 					{
-						// Retrieve the damage from every hitgroup, also set current health info every time player is bleeding
-						new dmg    = BleedInfo[i][damage];
+						// Get and set current health every time player is bleeding
 						new oldhp  = BleedInfo[i][curhealth];
 
 						// Take damage using same way
-						SDKHooks_TakeDamage(i, 0, attackerID, float(dmg));
+						SDKHooks_TakeDamage(i, 0, GetClientOfUserId(BleedInfo[i][attacker]), float(dmg));
 
 						// Just subtract amount of current health depends on damage
 						oldhp -= dmg;
@@ -250,7 +219,7 @@ public Action:Timer_Bleeding(Handle:timer)
 						if (GetClientHealth(i) > oldhp)
 						{
 							// Stop bleeding if player had any health boost
-							BleedInfo[i][enabled] = false;
+							StopBleed(i);
 						}
 					}
 				}
@@ -258,3 +227,34 @@ public Action:Timer_Bleeding(Handle:timer)
 		}
 	}
 }
+
+/* StartBleed()
+ *
+ * Makes player bleeding.
+ * -------------------------------------------------------------------------- */
+StartBleed(client, attackerid, hitgroupid, clienthp)
+{
+	// Set bleed info to true
+	BleedInfo[client][enabled]  = true;
+
+	// Add attacker index
+	BleedInfo[client][attacker] = attackerid;
+
+	// Set health infos equal to real current player's health value
+	BleedInfo[client][health]   = BleedInfo[client][curhealth] = clienthp;
+
+	// Retrieve a hitgroup
+	switch (hitgroupid)
+	{
+		// Take appropriate damage per Y seconds depends on ConVar values
+		case head: BleedInfo[client][damage] += GetConVarInt(Bleed_Damage[HEAD]);
+		case body: BleedInfo[client][damage] += GetConVarInt(Bleed_Damage[BODY]);
+		default:   BleedInfo[client][damage] += GetConVarInt(Bleed_Damage[OTHER]);
+	}
+}
+
+/* StopBleed()
+ *
+ * Stops bleeding and removing player from timer queue.
+ * -------------------------------------------------------------------------- */
+StopBleed(client) BleedInfo[client][enabled] = BleedInfo[client][damage] = false;
