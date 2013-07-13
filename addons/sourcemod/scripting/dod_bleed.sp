@@ -140,7 +140,7 @@ public Event_Player_Spawn(Handle:event, const String:name[], bool:dontBroadcast)
  * -------------------------------------------------------------------------- */
 public Event_Player_Damaged(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	new attackerid = GetClientOfUserId(GetEventInt(event, "attacker"));
+	new attackerid = GetEventInt(event, "attacker");
 	new victimid   = GetClientOfUserId(GetEventInt(event, "victim"));
 	new hitgroupid = GetEventInt(event, "hitgroup");
 
@@ -211,11 +211,11 @@ public Action:Timer_Bleeding(Handle:timer)
 		// Ignore not yet connected and dead players
 		if (IsClientInGame(i) && IsPlayerAlive(i))
 		{
-			// There are any bleeding player?
+			// There are any bleeding players ?
 			if (bool:BleedInfo[i][enabled] == true)
 			{
-				// Also make sure that attacker is in game, otherwise set attacker as a 'world'
-				new attackerID = IsClientInGame(BleedInfo[i][attacker]) ? BleedInfo[i][attacker] : 0;
+				// Make sure attacker is valid, otherwise set attacker as a 'world'
+				new attackerID = (GetClientOfUserId(BleedInfo[i][attacker]) != 0) ? GetClientOfUserId(BleedInfo[i][attacker]) : 0;
 
 				switch (GetConVarBool(Bleed_Mode))
 				{
