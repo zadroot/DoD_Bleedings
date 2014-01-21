@@ -8,8 +8,6 @@
 * Changelog & more info at http://goo.gl/4nKhJ
 */
 
-#pragma semicolon 1
-
 #include <sdkhooks>
 
 // ====[ CONSTANTS ]========================================================
@@ -49,7 +47,7 @@ enum BleedHitGroups
 	Handle:HEAD,
 	Handle:BODY,
 	Handle:OTHER
-}
+};
 
 new	Bleed_Damage[BleedHitGroups],
 	Handle:Bleed_Mode = INVALID_HANDLE,
@@ -66,7 +64,7 @@ public Plugin:myinfo =
 	description = "Enables player bleeding after taking X damage for Y health every Z seconds",
 	version     = PLUGIN_VERSION,
 	url         = "http://dodsplugins.com/"
-};
+}
 
 
 /* OnPluginStart()
@@ -159,6 +157,7 @@ public Event_Player_Damaged(Handle:event, const String:name[], bool:dontBroadcas
 				StartBleed(victimid, attackerid, hitgroupid, victimhealth);
 			}
 		}
+
 		case true:
 		{
 			// Start bleeding if player is taken X damage (doesn't matter how many health had and having right now)
@@ -205,12 +204,13 @@ public Action:Timer_Bleeding(Handle:timer)
 							StopBleed(i);
 						}
 					}
+
 					case true:
 					{
 						// Get and set current health every time player is bleeding
 						new oldhp = BleedInfo[i][curhealth];
 
-						// Take 'DMG_CLUB' type of damage bit
+						// Use 'DMG_CLUB' type of damage bit to make player loud
 						SDKHooks_TakeDamage(i, 0, GetClientOfUserId(BleedInfo[i][attacker]), float(dmg), DMG_CLUB, WEAPON_CRIT);
 
 						// Just subtract amount of current health depends on damage
